@@ -20,6 +20,9 @@ NOTE: AutoTrain is free! You only pay for the resources you use in case you deci
 | Extractive Question Answering | ✅ | Coming Soon | [extractive_qa.yaml](https://github.com/huggingface/autotrain-advanced/tree/main/configs/extractive_question_answering) |
 | Image Classification | ✅ | Coming Soon | [image_classification.yaml](https://github.com/huggingface/autotrain-advanced/tree/main/configs/image_classification) |
 | Image Scoring/Regression | ✅ | Coming Soon | [image_regression.yaml](https://github.com/huggingface/autotrain-advanced/tree/main/configs/image_scoring) |
+| Audio Classification | ✅ | Coming Soon | [audio_classification.yaml](https://github.com/huggingface/autotrain-advanced/tree/main/configs/audio_classification) |
+| Audio Detection | ✅ | Coming Soon | [audio_detection.yaml](https://github.com/huggingface/autotrain-advanced/tree/main/configs/audio_detection) |
+| Audio Segmentation | ✅ | Coming Soon | [audio_segmentation.yaml](https://github.com/huggingface/autotrain-advanced/tree/main/configs/audio_segmentation) |
 | VLM | 🟥 | Coming Soon | [vlm.yaml](https://github.com/huggingface/autotrain-advanced/tree/main/configs/vlm) |
 
 
