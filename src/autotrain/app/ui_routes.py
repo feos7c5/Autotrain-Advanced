@@ -18,6 +18,9 @@ from autotrain.app.models import fetch_models
 from autotrain.app.params import AppParams, get_task_params
 from autotrain.app.utils import get_running_jobs, get_user_and_orgs, kill_process_by_pid, token_verification
 from autotrain.dataset import (
+    AutoTrainAudioClassificationDataset,
+    AutoTrainAudioDetectionDataset,
+    AutoTrainAudioSegmentationDataset,
     AutoTrainDataset,
     AutoTrainImageClassificationDataset,
     AutoTrainImageRegressionDataset,
@@ -200,6 +203,29 @@ UI_PARAMS = {
     "early_stopping_patience": {
         "type": "number",
         "label": "Early stopping patience",
+    },
+    "push_to_hub": {
+        "type": "dropdown",
+        "label": "Push to Hub",
+        "options": [True, False],
+    },
+    "max_length": {
+        "type": "number",
+        "label": "Max audio length (samples)",
+    },
+    "sampling_rate": {
+        "type": "number",
+        "label": "Sampling rate (Hz)",
+    },
+    "feature_extractor_normalize": {
+        "type": "dropdown",
+        "label": "Normalize features",
+        "options": [True, False],
+    },
+    "feature_extractor_return_attention_mask": {
+        "type": "dropdown",
+        "label": "Return attention mask",
+        "options": [True, False],
     },
     "early_stopping_threshold": {
         "type": "number",
@@ -481,6 +507,12 @@ async def fetch_model_choices(
         hub_models = MODEL_CHOICE["vlm"]
     elif task == "extractive-qa":
         hub_models = MODEL_CHOICE["extractive-qa"]
+    elif task == "audio-classification":
+        hub_models = MODEL_CHOICE["audio-classification"]
+    elif task == "audio-segmentation":
+        hub_models = MODEL_CHOICE["audio-segmentation"]
+    elif task == "audio-detection":
+        hub_models = MODEL_CHOICE["audio-detection"]
     else:
         raise NotImplementedError
 
@@ -600,6 +632,36 @@ async def handle_form(
             )
         elif task == "image-object-detection":
             dset = AutoTrainObjectDetectionDataset(
+                train_data=training_files[0],
+                token=token,
+                project_name=project_name,
+                username=autotrain_user,
+                valid_data=validation_files[0] if validation_files else None,
+                percent_valid=None,  # TODO: add to UI
+                local=hardware.lower() == "local-ui",
+            )
+        elif task == "audio-classification":
+            dset = AutoTrainAudioClassificationDataset(
+                train_data=training_files[0],
+                token=token,
+                project_name=project_name,
+                username=autotrain_user,
+                valid_data=validation_files[0] if validation_files else None,
+                percent_valid=None,  # TODO: add to UI
+                local=hardware.lower() == "local-ui",
+            )
+        elif task == "audio-segmentation":
+            dset = AutoTrainAudioSegmentationDataset(
+                train_data=training_files[0],
+                token=token,
+                project_name=project_name,
+                username=autotrain_user,
+                valid_data=validation_files[0] if validation_files else None,
+                percent_valid=None,  # TODO: add to UI
+                local=hardware.lower() == "local-ui",
+            )
+        elif task == "audio-detection":
+            dset = AutoTrainAudioDetectionDataset(
                 train_data=training_files[0],
                 token=token,
                 project_name=project_name,

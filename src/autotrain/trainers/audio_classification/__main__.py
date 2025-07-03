@@ -7,8 +7,8 @@ from datasets import load_dataset, load_from_disk
 from huggingface_hub import HfApi
 from transformers import (
     AutoConfig,
-    AutoImageProcessor,
-    AutoModelForImageClassification,
+    AutoFeatureExtractor,
+    AutoModelForAudioClassification,
     EarlyStoppingCallback,
     Trainer,
     TrainingArguments,
@@ -26,8 +26,8 @@ from autotrain.trainers.common import (
     remove_autotrain_data,
     save_training_params,
 )
-from autotrain.trainers.image_classification import utils
-from autotrain.trainers.image_classification.params import ImageClassificationParams
+from autotrain.trainers.audio_classification import utils
+from autotrain.trainers.audio_classification.params import AudioClassificationParams
 
 
 def parse_args():
@@ -40,7 +40,7 @@ def parse_args():
 @monitor
 def train(config):
     if isinstance(config, dict):
-        config = ImageClassificationParams(**config)
+        config = AudioClassificationParams(**config)
 
     if torch.backends.mps.is_available() and config.mixed_precision in ["fp16", "bf16"]:
         logger.warning(f"{config.mixed_precision} mixed precision is not supported on Apple Silicon MPS. Disabling mixed precision.")
@@ -91,21 +91,34 @@ def train(config):
     logger.info(f"Train data: {train_data}")
     logger.info(f"Valid data: {valid_data}")
 
-    classes = train_data.features[config.target_column].names
+    # Get classes from the dataset
+    if hasattr(train_data.features[config.target_column], 'names'):
+        classes = train_data.features[config.target_column].names
+    else:
+        # If no class names, get unique values
+        unique_labels = train_data.unique(config.target_column)
+        classes = [f"class_{i}" for i in range(len(unique_labels))]
+    
     logger.info(f"Classes: {classes}")
     label2id = {c: i for i, c in enumerate(classes)}
+    id2label = {i: c for i, c in enumerate(classes)}
     num_classes = len(classes)
 
     if num_classes < 2:
         raise ValueError("Invalid number of classes. Must be greater than 1.")
 
     if config.valid_split is not None:
-        num_classes_valid = len(valid_data.unique(config.target_column))
+        if hasattr(valid_data.features[config.target_column], 'names'):
+            num_classes_valid = len(valid_data.features[config.target_column].names)
+        else:
+            num_classes_valid = len(valid_data.unique(config.target_column))
+        
         if num_classes_valid != num_classes:
             raise ValueError(
                 f"Number of classes in train and valid are not the same. Training has {num_classes} and valid has {num_classes_valid}"
             )
 
+    # Load model configuration
     model_config = AutoConfig.from_pretrained(
         config.model,
         num_labels=num_classes,
@@ -114,10 +127,11 @@ def train(config):
     )
     model_config._num_labels = len(label2id)
     model_config.label2id = label2id
-    model_config.id2label = {v: k for k, v in label2id.items()}
+    model_config.id2label = id2label
 
+    # Load model
     try:
-        model = AutoModelForImageClassification.from_pretrained(
+        model = AutoModelForAudioClassification.from_pretrained(
             config.model,
             config=model_config,
             trust_remote_code=ALLOW_REMOTE_CODE,
@@ -125,37 +139,52 @@ def train(config):
             ignore_mismatched_sizes=True,
         )
     except OSError:
-        model = AutoModelForImageClassification.from_pretrained(
+        try:
+            # Try loading from tf if pytorch version fails
+            model = AutoModelForAudioClassification.from_pretrained(
+                config.model,
+                config=model_config,
+                from_tf=True,
+                trust_remote_code=ALLOW_REMOTE_CODE,
+                token=config.token,
+                ignore_mismatched_sizes=True,
+            )
+        except Exception as e:
+            logger.error(f"Failed to load model: {e}")
+            raise
+
+    # Load feature extractor
+    try:
+        feature_extractor = AutoFeatureExtractor.from_pretrained(
             config.model,
-            config=model_config,
-            from_tf=True,
-            trust_remote_code=ALLOW_REMOTE_CODE,
             token=config.token,
-            ignore_mismatched_sizes=True,
+            trust_remote_code=ALLOW_REMOTE_CODE,
         )
+    except Exception as e:
+        logger.warning(f"Could not load feature extractor: {e}")
+        logger.warning("Using default feature extractor settings")
+        feature_extractor = None
 
-    image_processor = AutoImageProcessor.from_pretrained(
-        config.model,
-        token=config.token,
-        trust_remote_code=ALLOW_REMOTE_CODE,
-    )
-    train_data, valid_data = utils.process_data(train_data, valid_data, image_processor, config)
+    # Process data
+    train_data, valid_data = utils.process_data(train_data, valid_data, feature_extractor, config)
 
+    # Set up logging
     if config.logging_steps == -1:
         if config.valid_split is not None:
-            logging_steps = int(0.2 * len(valid_data) / config.batch_size)
+            logging_steps = int(0.2 * len(train_data) / config.batch_size)
         else:
             logging_steps = int(0.2 * len(train_data) / config.batch_size)
         if logging_steps == 0:
             logging_steps = 1
-        if logging_steps > 25:
-            logging_steps = 25
+        if logging_steps > 100:
+            logging_steps = 100
         config.logging_steps = logging_steps
     else:
         logging_steps = config.logging_steps
 
     logger.info(f"Logging steps: {logging_steps}")
 
+    # Training arguments
     training_args = dict(
         output_dir=config.project_name,
         per_device_train_batch_size=config.batch_size,
@@ -184,6 +213,7 @@ def train(config):
     if config.mixed_precision == "bf16":
         training_args["bf16"] = True
 
+    # Set up callbacks
     if config.valid_split is not None:
         early_stop = EarlyStoppingCallback(
             early_stopping_patience=config.early_stopping_patience,
@@ -196,13 +226,17 @@ def train(config):
     callbacks_to_use.extend([UploadLogs(config=config), LossLoggingCallback(), TrainStartCallback()])
 
     args = TrainingArguments(**training_args)
+    
+    # Choose metrics function based on number of classes
+    compute_metrics = (
+        utils._binary_classification_metrics if num_classes == 2 else utils._multi_class_classification_metrics
+    )
+    
     trainer_args = dict(
         args=args,
         model=model,
         callbacks=callbacks_to_use,
-        compute_metrics=(
-            utils._binary_classification_metrics if num_classes == 2 else utils._multi_class_classification_metrics
-        ),
+        compute_metrics=compute_metrics,
     )
 
     trainer = Trainer(
@@ -215,14 +249,17 @@ def train(config):
 
     logger.info("Finished training, saving model...")
     trainer.save_model(config.project_name)
-    image_processor.save_pretrained(config.project_name)
+    
+    # Save feature extractor if available
+    if feature_extractor is not None:
+        feature_extractor.save_pretrained(config.project_name)
 
+    # Create and save model card
     model_card = utils.create_model_card(config, trainer, num_classes)
-
-    # save model card to output directory as README.md
     with open(f"{config.project_name}/README.md", "w") as f:
         f.write(model_card)
 
+    # Push to hub if requested
     if config.push_to_hub:
         if PartialState().process_index == 0:
             remove_autotrain_data(config)
@@ -243,5 +280,5 @@ def train(config):
 if __name__ == "__main__":
     _args = parse_args()
     training_config = json.load(open(_args.training_config))
-    _config = ImageClassificationParams(**training_config)
-    train(_config)
+    _config = AudioClassificationParams(**training_config)
+    train(_config) 

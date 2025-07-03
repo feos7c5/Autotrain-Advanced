@@ -1,0 +1,47 @@
+task: audio-detection
+base_model: facebook/wav2vec2-base
+project_name: my-autotrain-audio-detection-hub
+log: tensorboard
+backend: local
+
+# Hub dataset configuration
+data_path: audiofolder/audio_detection_dataset
+train_split: train
+valid_split: validation
+
+column_mapping:
+  audio_column: audio
+  events_column: events
+
+parameters:
+  learning_rate: 3e-5
+  epochs: 3
+  batch_size: 8
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  mixed_precision: fp16
+  gradient_accumulation: 1
+  auto_find_batch_size: false
+  push_to_hub: false
+  logging_steps: -1
+  eval_strategy: epoch
+  save_total_limit: 1
+  early_stopping_patience: 5
+  early_stopping_threshold: 0.01
+  max_length: 480000  # 30 seconds at 16kHz
+  sampling_rate: 16000
+  event_overlap_threshold: 0.5  # IoU threshold for overlapping events
+  confidence_threshold: 0.1  # Minimum confidence threshold for event detection
+
+# Hub settings
+hub:
+  username: ${HF_USERNAME}
+  token: ${HF_TOKEN}
+  push_to_hub: true
+
+# Note: For hub audio detection datasets:
+# - The dataset should have 'audio' and 'events' columns
+# - Events should be formatted as a list of dictionaries:
+#   [{"start": 0.0, "end": 2.5, "label": "speech"}, {"start": 2.5, "end": 3.0, "label": "silence"}]
+# - Audio column should contain audio data (array or file paths)
+# - Similar to object detection but for temporal events in audio 

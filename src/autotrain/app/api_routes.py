@@ -11,6 +11,9 @@ from autotrain import __version__, logger
 from autotrain.app.params import HIDDEN_PARAMS, PARAMS, AppParams
 from autotrain.app.utils import token_verification
 from autotrain.project import AutoTrainProject
+from autotrain.trainers.audio_classification.params import AudioClassificationParams
+from autotrain.trainers.audio_detection.params import AudioDetectionParams
+from autotrain.trainers.audio_segmentation.params import AudioSegmentationParams
 from autotrain.trainers.clm.params import LLMTrainingParams
 from autotrain.trainers.extractive_question_answering.params import ExtractiveQuestionAnsweringParams
 from autotrain.trainers.image_classification.params import ImageClassificationParams
@@ -25,7 +28,7 @@ from autotrain.trainers.token_classification.params import TokenClassificationPa
 from autotrain.trainers.vlm.params import VLMTrainingParams
 
 
-FIELDS_TO_EXCLUDE = HIDDEN_PARAMS + ["push_to_hub"]
+FIELDS_TO_EXCLUDE = HIDDEN_PARAMS
 
 
 def create_api_base_model(base_class, class_name):
@@ -108,10 +111,11 @@ TokenClassificationParamsAPI = create_api_base_model(TokenClassificationParams, 
 SentenceTransformersParamsAPI = create_api_base_model(SentenceTransformersParams, "SentenceTransformersParamsAPI")
 ImageRegressionParamsAPI = create_api_base_model(ImageRegressionParams, "ImageRegressionParamsAPI")
 VLMTrainingParamsAPI = create_api_base_model(VLMTrainingParams, "VLMTrainingParamsAPI")
-ExtractiveQuestionAnsweringParamsAPI = create_api_base_model(
-    ExtractiveQuestionAnsweringParams, "ExtractiveQuestionAnsweringParamsAPI"
-)
+ExtractiveQuestionAnsweringParamsAPI = create_api_base_model(ExtractiveQuestionAnsweringParams, "ExtractiveQuestionAnsweringParamsAPI")
 ObjectDetectionParamsAPI = create_api_base_model(ObjectDetectionParams, "ObjectDetectionParamsAPI")
+AudioClassificationParamsAPI = create_api_base_model(AudioClassificationParams, "AudioClassificationParamsAPI")
+AudioSegmentationParamsAPI = create_api_base_model(AudioSegmentationParams, "AudioSegmentationParamsAPI")
+AudioDetectionParamsAPI = create_api_base_model(AudioDetectionParams, "AudioDetectionParamsAPI")
 
 
 class LLMSFTColumnMapping(BaseModel):
@@ -224,6 +228,21 @@ class ObjectDetectionColumnMapping(BaseModel):
     objects_column: str
 
 
+class AudioClassificationColumnMapping(BaseModel):
+    audio_column: str
+    target_column: str
+
+
+class AudioSegmentationColumnMapping(BaseModel):
+    audio_column: str
+    target_column: str
+
+
+class AudioDetectionColumnMapping(BaseModel):
+    audio_column: str
+    events_column: str
+
+
 class APICreateProjectModel(BaseModel):
     """
     APICreateProjectModel is a Pydantic model that defines the schema for creating a project.
@@ -275,6 +294,8 @@ class APICreateProjectModel(BaseModel):
         "vlm:vqa",
         "extractive-question-answering",
         "image-object-detection",
+        "audio-classification",
+        "audio-segmentation",
     ]
     base_model: str
     hardware: Literal[
@@ -312,6 +333,9 @@ class APICreateProjectModel(BaseModel):
         VLMTrainingParamsAPI,
         ExtractiveQuestionAnsweringParamsAPI,
         ObjectDetectionParamsAPI,
+        AudioClassificationParamsAPI,
+        AudioSegmentationParamsAPI,
+        AudioDetectionParamsAPI,
     ]
     username: str
     column_mapping: Optional[
@@ -337,6 +361,9 @@ class APICreateProjectModel(BaseModel):
             VLMColumnMapping,
             ExtractiveQuestionAnsweringColumnMapping,
             ObjectDetectionColumnMapping,
+            AudioClassificationColumnMapping,
+            AudioSegmentationColumnMapping,
+            AudioDetectionColumnMapping,
         ]
     ] = None
     hub_dataset: str
@@ -534,6 +561,30 @@ class APICreateProjectModel(BaseModel):
             if not values.get("column_mapping").get("objects_column"):
                 raise ValueError("objects_column is required for image-object-detection")
             values["column_mapping"] = ObjectDetectionColumnMapping(**values["column_mapping"])
+        elif values.get("task") == "audio-classification":
+            if not values.get("column_mapping"):
+                raise ValueError("column_mapping is required for audio-classification")
+            if not values.get("column_mapping").get("audio_column"):
+                raise ValueError("audio_column is required for audio-classification")
+            if not values.get("column_mapping").get("target_column"):
+                raise ValueError("target_column is required for audio-classification")
+            values["column_mapping"] = AudioClassificationColumnMapping(**values["column_mapping"])
+        elif values.get("task") == "audio-segmentation":
+            if not values.get("column_mapping"):
+                raise ValueError("column_mapping is required for audio-segmentation")
+            if not values.get("column_mapping").get("audio_column"):
+                raise ValueError("audio_column is required for audio-segmentation")
+            if not values.get("column_mapping").get("target_column"):
+                raise ValueError("target_column is required for audio-segmentation")
+            values["column_mapping"] = AudioSegmentationColumnMapping(**values["column_mapping"])
+        elif values.get("task") == "audio-detection":
+            if not values.get("column_mapping"):
+                raise ValueError("column_mapping is required for audio-detection")
+            if not values.get("column_mapping").get("audio_column"):
+                raise ValueError("audio_column is required for audio-detection")
+            if not values.get("column_mapping").get("events_column"):
+                raise ValueError("events_column is required for audio-detection")
+            values["column_mapping"] = AudioDetectionColumnMapping(**values["column_mapping"])
         return values
 
     @model_validator(mode="before")
@@ -573,6 +624,12 @@ class APICreateProjectModel(BaseModel):
             values["params"] = ExtractiveQuestionAnsweringParamsAPI(**values["params"])
         elif values.get("task") == "image-object-detection":
             values["params"] = ObjectDetectionParamsAPI(**values["params"])
+        elif values.get("task") == "audio-classification":
+            values["params"] = AudioClassificationParamsAPI(**values["params"])
+        elif values.get("task") == "audio-segmentation":
+            values["params"] = AudioSegmentationParamsAPI(**values["params"])
+        elif values.get("task") == "audio-detection":
+            values["params"] = AudioDetectionParamsAPI(**values["params"])
         return values
 
 

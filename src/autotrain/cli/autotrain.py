@@ -3,6 +3,9 @@ import argparse
 from autotrain import __version__, logger
 from autotrain.cli.run_api import RunAutoTrainAPICommand
 from autotrain.cli.run_app import RunAutoTrainAppCommand
+from autotrain.cli.run_audio_classification import RunAutoTrainAudioClassificationCommand
+from autotrain.cli.run_audio_detection import RunAutoTrainAudioDetectionCommand
+from autotrain.cli.run_audio_segmentation import RunAutoTrainAudioSegmentationCommand
 from autotrain.cli.run_extractive_qa import RunAutoTrainExtractiveQACommand
 from autotrain.cli.run_image_classification import RunAutoTrainImageClassificationCommand
 from autotrain.cli.run_image_regression import RunAutoTrainImageRegressionCommand
@@ -36,6 +39,9 @@ def main():
     RunSetupCommand.register_subcommand(commands_parser)
     RunAutoTrainAPICommand.register_subcommand(commands_parser)
     RunAutoTrainTextClassificationCommand.register_subcommand(commands_parser)
+    RunAutoTrainAudioClassificationCommand.register_subcommand(commands_parser)
+    RunAutoTrainAudioDetectionCommand.register_subcommand(commands_parser)
+    RunAutoTrainAudioSegmentationCommand.register_subcommand(commands_parser)
     RunAutoTrainImageClassificationCommand.register_subcommand(commands_parser)
     RunAutoTrainTabularCommand.register_subcommand(commands_parser)
     RunAutoTrainSpaceRunnerCommand.register_subcommand(commands_parser)

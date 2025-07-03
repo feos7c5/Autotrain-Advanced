@@ -2,6 +2,9 @@ import json
 from dataclasses import dataclass
 from typing import Optional
 
+from autotrain.trainers.audio_classification.params import AudioClassificationParams
+from autotrain.trainers.audio_detection.params import AudioDetectionParams
+from autotrain.trainers.audio_segmentation.params import AudioSegmentationParams
 from autotrain.trainers.clm.params import LLMTrainingParams
 from autotrain.trainers.extractive_question_answering.params import ExtractiveQuestionAnsweringParams
 from autotrain.trainers.image_classification.params import ImageClassificationParams
@@ -66,7 +69,6 @@ HIDDEN_PARAMS = [
     "question_column",
     "answer_column",
 ]
-
 
 PARAMS = {}
 PARAMS["llm"] = LLMTrainingParams(
@@ -134,6 +136,18 @@ PARAMS["extractive-qa"] = ExtractiveQuestionAnsweringParams(
     log="tensorboard",
     max_seq_length=512,
     max_doc_stride=128,
+).model_dump()
+PARAMS["audio-classification"] = AudioClassificationParams(
+    mixed_precision="fp16",
+    log="tensorboard",
+).model_dump()
+PARAMS["audio-detection"] = AudioDetectionParams(
+    mixed_precision="fp16",
+    log="tensorboard",
+).model_dump()
+PARAMS["audio-segmentation"] = AudioSegmentationParams(
+    mixed_precision="fp16",
+    log="tensorboard",
 ).model_dump()
 
 
@@ -216,6 +230,12 @@ class AppParams:
             return self._munge_params_vlm()
         elif self.task == "extractive-qa":
             return self._munge_params_extractive_qa()
+        elif self.task == "audio-classification":
+            return self._munge_params_audio_clf()
+        elif self.task == "audio-detection":
+            return self._munge_params_audio_det()
+        elif self.task == "audio-segmentation":
+            return self._munge_params_audio_seg()
         else:
             raise ValueError(f"Unknown task: {self.task}")
 
@@ -488,6 +508,54 @@ class AppParams:
 
         return TabularParams(**_params)
 
+    def _munge_params_audio_clf(self):
+        _params = self._munge_common_params()
+        _params["model"] = self.base_model
+        if "log" not in _params:
+            _params["log"] = "tensorboard"
+        if not self.using_hub_dataset:
+            _params["audio_column"] = "autotrain_audio"
+            _params["target_column"] = "autotrain_label"
+            _params["valid_split"] = "validation"
+        else:
+            _params["audio_column"] = self.column_mapping.get("audio" if not self.api else "audio_column", "audio")
+            _params["target_column"] = self.column_mapping.get("label" if not self.api else "target_column", "label")
+            _params["train_split"] = self.train_split
+            _params["valid_split"] = self.valid_split
+        return AudioClassificationParams(**_params)
+
+    def _munge_params_audio_det(self):
+        _params = self._munge_common_params()
+        _params["model"] = self.base_model
+        if "log" not in _params:
+            _params["log"] = "tensorboard"
+        if not self.using_hub_dataset:
+            _params["audio_column"] = "autotrain_audio"
+            _params["events_column"] = "autotrain_events"
+            _params["valid_split"] = "validation"
+        else:
+            _params["audio_column"] = self.column_mapping.get("audio" if not self.api else "audio_column", "audio")
+            _params["events_column"] = self.column_mapping.get("events" if not self.api else "events_column", "events")
+            _params["train_split"] = self.train_split
+            _params["valid_split"] = self.valid_split
+        return AudioDetectionParams(**_params)
+
+    def _munge_params_audio_seg(self):
+        _params = self._munge_common_params()
+        _params["model"] = self.base_model
+        if "log" not in _params:
+            _params["log"] = "tensorboard"
+        if not self.using_hub_dataset:
+            _params["audio_column"] = "autotrain_audio"
+            _params["target_column"] = "autotrain_label"
+            _params["valid_split"] = "validation"
+        else:
+            _params["audio_column"] = self.column_mapping.get("audio" if not self.api else "audio_column", "audio")
+            _params["target_column"] = self.column_mapping.get("label" if not self.api else "target_column", "label")
+            _params["train_split"] = self.train_split
+            _params["valid_split"] = self.valid_split
+        return AudioSegmentationParams(**_params)
+
 
 def get_task_params(task, param_type):
     """
@@ -733,6 +801,66 @@ def get_task_params(task, param_type):
             "eval_strategy",
             "early_stopping_patience",
             "early_stopping_threshold",
+        ]
+        task_params = {k: v for k, v in task_params.items() if k not in more_hidden_params}
+    if task == "audio-classification" and param_type == "basic":
+        more_hidden_params = [
+            "warmup_ratio",
+            "weight_decay",
+            "max_grad_norm",
+            "seed",
+            "logging_steps",
+            "auto_find_batch_size",
+            "save_total_limit",
+            "eval_strategy",
+            "early_stopping_patience",
+            "early_stopping_threshold",
+            "feature_extractor_normalize",
+            "feature_extractor_return_attention_mask",
+            "gradient_accumulation",
+            "max_length",
+            "sampling_rate",
+        ]
+        task_params = {k: v for k, v in task_params.items() if k not in more_hidden_params}
+    if task == "audio-segmentation" and param_type == "basic":
+        more_hidden_params = [
+            "warmup_ratio",
+            "weight_decay",
+            "max_grad_norm",
+            "seed",
+            "logging_steps",
+            "auto_find_batch_size",
+            "save_total_limit",
+            "eval_strategy",
+            "early_stopping_patience",
+            "early_stopping_threshold",
+            "feature_extractor_normalize",
+            "feature_extractor_return_attention_mask",
+            "gradient_accumulation",
+            "max_length",
+            "sampling_rate",
+            "segment_length",
+            "overlap_length",
+            "min_segment_length",
+        ]
+        task_params = {k: v for k, v in task_params.items() if k not in more_hidden_params}
+    if task == "audio-detection" and param_type == "basic":
+        more_hidden_params = [
+            "warmup_ratio",
+            "weight_decay",
+            "max_grad_norm",
+            "seed",
+            "logging_steps",
+            "auto_find_batch_size",
+            "save_total_limit",
+            "eval_strategy",
+            "early_stopping_patience",
+            "early_stopping_threshold",
+            "gradient_accumulation",
+            "max_length",
+            "sampling_rate",
+            "event_overlap_threshold",
+            "confidence_threshold",
         ]
         task_params = {k: v for k, v in task_params.items() if k not in more_hidden_params}
 

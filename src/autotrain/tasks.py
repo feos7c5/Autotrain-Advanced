@@ -20,6 +20,12 @@ VISION_TASKS = {
     "image_object_detection": 29,
 }
 
+AUDIO_TASKS = {
+    "audio_binary_classification": 32,
+    "audio_multi_class_classification": 33,
+    "audio_segmentation": 34,
+}
+
 TABULAR_TASKS = {
     "tabular_binary_classification": 13,
     "tabular_multi_class_classification": 14,
@@ -32,5 +38,6 @@ TABULAR_TASKS = {
 TASKS = {
     **NLP_TASKS,
     **VISION_TASKS,
+    **AUDIO_TASKS,
     **TABULAR_TASKS,
 }

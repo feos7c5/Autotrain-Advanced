@@ -1,0 +1,44 @@
+task: audio_segmentation
+base_model: microsoft/speecht5_vc
+project_name: autotrain-audio-segmentation-local
+log: tensorboard
+backend: local
+
+data_path: data/
+train_split: train
+valid_split: validation
+audio_column: audio_path
+target_column: segments
+
+# Training parameters
+epochs: 5
+batch_size: 8
+lr: 3e-5
+scheduler: linear
+optimizer: adamw_torch
+weight_decay: 0.01
+warmup_ratio: 0.1
+gradient_accumulation: 1
+mixed_precision: fp16
+logging_steps: 50
+save_total_limit: 3
+eval_strategy: epoch
+early_stopping_patience: 3
+early_stopping_threshold: 0.01
+
+# Audio specific parameters
+max_length: 480000  # 30 seconds at 16kHz
+sampling_rate: 16000
+feature_extractor_normalize: true
+feature_extractor_return_attention_mask: true
+
+# Segmentation specific parameters
+segment_length: 5.0  # seconds
+overlap_length: 0.5  # seconds
+min_segment_length: 1.0  # seconds
+
+# Model parameters
+seed: 42
+max_grad_norm: 1.0
+auto_find_batch_size: false
+push_to_hub: false 

@@ -1,9 +1,13 @@
 import os
 import shlex
+import sys
 
 import torch
 
 from autotrain import logger
+from autotrain.trainers.audio_classification.params import AudioClassificationParams
+from autotrain.trainers.audio_detection.params import AudioDetectionParams
+from autotrain.trainers.audio_segmentation.params import AudioSegmentationParams
 from autotrain.trainers.clm.params import LLMTrainingParams
 from autotrain.trainers.extractive_question_answering.params import ExtractiveQuestionAnsweringParams
 from autotrain.trainers.generic.params import GenericParams
@@ -151,9 +155,144 @@ def launch_command(params):
             ]
         )
 
+    elif isinstance(params, AudioClassificationParams):
+        if num_gpus == 0:
+            cmd = [
+                "accelerate",
+                "launch",
+                "--cpu",
+            ]
+        elif num_gpus == 1:
+            cmd = [
+                "accelerate",
+                "launch",
+                "--num_machines",
+                "1",
+                "--num_processes",
+                "1",
+            ]
+        else:
+            cmd = [
+                "accelerate",
+                "launch",
+                "--multi_gpu",
+                "--num_machines",
+                "1",
+                "--num_processes",
+                str(num_gpus),
+            ]
+
+        if num_gpus > 0:
+            cmd.append("--mixed_precision")
+            if params.mixed_precision == "fp16":
+                cmd.append("fp16")
+            elif params.mixed_precision == "bf16":
+                cmd.append("bf16")
+            else:
+                cmd.append("no")
+
+        cmd.extend(
+            [
+                "-m",
+                "autotrain.trainers.audio_classification",
+                "--training_config",
+                os.path.join(params.project_name, "training_params.json"),
+            ]
+        )
+
+    elif isinstance(params, AudioSegmentationParams):
+        if num_gpus == 0:
+            cmd = [
+                "accelerate",
+                "launch",
+                "--cpu",
+            ]
+        elif num_gpus == 1:
+            cmd = [
+                "accelerate",
+                "launch",
+                "--num_machines",
+                "1",
+                "--num_processes",
+                "1",
+            ]
+        else:
+            cmd = [
+                "accelerate",
+                "launch",
+                "--multi_gpu",
+                "--num_machines",
+                "1",
+                "--num_processes",
+                str(num_gpus),
+            ]
+
+        if num_gpus > 0:
+            cmd.append("--mixed_precision")
+            if params.mixed_precision == "fp16":
+                cmd.append("fp16")
+            elif params.mixed_precision == "bf16":
+                cmd.append("bf16")
+            else:
+                cmd.append("no")
+
+        cmd.extend(
+            [
+                "-m",
+                "autotrain.trainers.audio_segmentation",
+                "--training_config",
+                os.path.join(params.project_name, "training_params.json"),
+            ]
+        )
+
+    elif isinstance(params, AudioDetectionParams):
+        if num_gpus == 0:
+            cmd = [
+                "accelerate",
+                "launch",
+                "--cpu",
+            ]
+        elif num_gpus == 1:
+            cmd = [
+                "accelerate",
+                "launch",
+                "--num_machines",
+                "1",
+                "--num_processes",
+                "1",
+            ]
+        else:
+            cmd = [
+                "accelerate",
+                "launch",
+                "--multi_gpu",
+                "--num_machines",
+                "1",
+                "--num_processes",
+                str(num_gpus),
+            ]
+
+        if num_gpus > 0:
+            cmd.append("--mixed_precision")
+            if params.mixed_precision == "fp16":
+                cmd.append("fp16")
+            elif params.mixed_precision == "bf16":
+                cmd.append("bf16")
+            else:
+                cmd.append("no")
+
+        cmd.extend(
+            [
+                "-m",
+                "autotrain.trainers.audio_detection",
+                "--training_config",
+                os.path.join(params.project_name, "training_params.json"),
+            ]
+        )
+
     elif isinstance(params, GenericParams):
         cmd = [
-            "python",
+            sys.executable,
             "-m",
             "autotrain.trainers.generic",
             "--config",
@@ -161,7 +300,7 @@ def launch_command(params):
         ]
     elif isinstance(params, TabularParams):
         cmd = [
-            "python",
+            sys.executable,
             "-m",
             "autotrain.trainers.tabular",
             "--training_config",

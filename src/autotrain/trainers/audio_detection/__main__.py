@@ -7,8 +7,8 @@ from datasets import load_dataset, load_from_disk
 from huggingface_hub import HfApi
 from transformers import (
     AutoConfig,
-    AutoImageProcessor,
-    AutoModelForImageClassification,
+    AutoFeatureExtractor,
+    AutoModelForAudioClassification,
     EarlyStoppingCallback,
     Trainer,
     TrainingArguments,
@@ -26,12 +26,11 @@ from autotrain.trainers.common import (
     remove_autotrain_data,
     save_training_params,
 )
-from autotrain.trainers.image_classification import utils
-from autotrain.trainers.image_classification.params import ImageClassificationParams
+from autotrain.trainers.audio_detection import utils
+from autotrain.trainers.audio_detection.params import AudioDetectionParams
 
 
 def parse_args():
-    # get training_config.json from the end user
     parser = argparse.ArgumentParser()
     parser.add_argument("--training_config", type=str, required=True)
     return parser.parse_args()
@@ -40,7 +39,7 @@ def parse_args():
 @monitor
 def train(config):
     if isinstance(config, dict):
-        config = ImageClassificationParams(**config)
+        config = AudioDetectionParams(**config)
 
     if torch.backends.mps.is_available() and config.mixed_precision in ["fp16", "bf16"]:
         logger.warning(f"{config.mixed_precision} mixed precision is not supported on Apple Silicon MPS. Disabling mixed precision.")
@@ -91,20 +90,50 @@ def train(config):
     logger.info(f"Train data: {train_data}")
     logger.info(f"Valid data: {valid_data}")
 
-    classes = train_data.features[config.target_column].names
+    all_labels = set()
+    for example in train_data:
+        events_data = example[config.events_column]
+        if isinstance(events_data, str):
+            events = json.loads(events_data)
+        else:
+            events = events_data
+        
+        for event in events:
+            if 'label' in event:
+                all_labels.add(event['label'])
+    
+    classes = sorted(list(all_labels))
     logger.info(f"Classes: {classes}")
     label2id = {c: i for i, c in enumerate(classes)}
     num_classes = len(classes)
 
-    if num_classes < 2:
-        raise ValueError("Invalid number of classes. Must be greater than 1.")
+    if num_classes < 1:
+        raise ValueError("No event labels found in the dataset.")
+    
+# Store label mapping for dataset processing
+    id2label = {v: k for k, v in label2id.items()}
 
-    if config.valid_split is not None:
-        num_classes_valid = len(valid_data.unique(config.target_column))
-        if num_classes_valid != num_classes:
-            raise ValueError(
-                f"Number of classes in train and valid are not the same. Training has {num_classes} and valid has {num_classes_valid}"
+    if config.valid_split is not None and valid_data is not None:
+        valid_all_labels = set()
+        for example in valid_data:
+            events_data = example[config.events_column]
+            if isinstance(events_data, str):
+                events = json.loads(events_data)
+            else:
+                events = events_data
+            
+            for event in events:
+                if 'label' in event:
+                    valid_all_labels.add(event['label'])
+        
+        valid_classes = sorted(list(valid_all_labels))
+        if len(valid_classes) != num_classes or valid_classes != classes:
+            logger.warning(
+                f"Number of classes in train and valid are not the same. Training has {classes} and valid has {valid_classes}. "
+                f"Skipping validation to continue training."
             )
+            valid_data = None
+            config.valid_split = None
 
     model_config = AutoConfig.from_pretrained(
         config.model,
@@ -117,7 +146,7 @@ def train(config):
     model_config.id2label = {v: k for k, v in label2id.items()}
 
     try:
-        model = AutoModelForImageClassification.from_pretrained(
+        model = AutoModelForAudioClassification.from_pretrained(
             config.model,
             config=model_config,
             trust_remote_code=ALLOW_REMOTE_CODE,
@@ -125,7 +154,7 @@ def train(config):
             ignore_mismatched_sizes=True,
         )
     except OSError:
-        model = AutoModelForImageClassification.from_pretrained(
+        model = AutoModelForAudioClassification.from_pretrained(
             config.model,
             config=model_config,
             from_tf=True,
@@ -134,12 +163,12 @@ def train(config):
             ignore_mismatched_sizes=True,
         )
 
-    image_processor = AutoImageProcessor.from_pretrained(
+    feature_extractor = AutoFeatureExtractor.from_pretrained(
         config.model,
         token=config.token,
         trust_remote_code=ALLOW_REMOTE_CODE,
     )
-    train_data, valid_data = utils.process_data(train_data, valid_data, image_processor, config)
+    train_data, valid_data = utils.process_data(train_data, valid_data, feature_extractor, config, label2id)
 
     if config.logging_steps == -1:
         if config.valid_split is not None:
@@ -215,7 +244,7 @@ def train(config):
 
     logger.info("Finished training, saving model...")
     trainer.save_model(config.project_name)
-    image_processor.save_pretrained(config.project_name)
+    feature_extractor.save_pretrained(config.project_name)
 
     model_card = utils.create_model_card(config, trainer, num_classes)
 
@@ -243,5 +272,5 @@ def train(config):
 if __name__ == "__main__":
     _args = parse_args()
     training_config = json.load(open(_args.training_config))
-    _config = ImageClassificationParams(**training_config)
+    _config = AudioDetectionParams(**training_config)
     train(_config)

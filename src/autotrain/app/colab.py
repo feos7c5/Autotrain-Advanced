@@ -68,7 +68,7 @@ def colab_app():
 
     def _get_params(task, param_type):
         _p = get_task_params(task, param_type=param_type)
-        _p["push_to_hub"] = True
+        _p["push_to_hub"] = False
         _p = json.dumps(_p, indent=4)
         return _p
 
@@ -342,7 +342,7 @@ def colab_app():
             if chat_template is not None:
                 params_val = {k: v for k, v in params_val.items() if k != "chat_template"}
 
-            push_to_hub = params_val.get("push_to_hub", True)
+            push_to_hub = params_val.get("push_to_hub", False)
             if "push_to_hub" in params_val:
                 params_val = {k: v for k, v in params_val.items() if k != "push_to_hub"}
 

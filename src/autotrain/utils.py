@@ -3,6 +3,9 @@ import os
 import subprocess
 
 from autotrain.commands import launch_command
+from autotrain.trainers.audio_classification.params import AudioClassificationParams
+from autotrain.trainers.audio_detection.params import AudioDetectionParams
+from autotrain.trainers.audio_segmentation.params import AudioSegmentationParams
 from autotrain.trainers.clm.params import LLMTrainingParams
 from autotrain.trainers.extractive_question_answering.params import ExtractiveQuestionAnsweringParams
 from autotrain.trainers.generic.params import GenericParams
@@ -66,6 +69,12 @@ def run_training(params, task_id, local=False, wait=False):
         params = VLMTrainingParams(**params)
     elif task_id == 5:
         params = ExtractiveQuestionAnsweringParams(**params)
+    elif task_id == 33:
+        params = AudioClassificationParams(**params)
+    elif task_id == 35:
+        params = AudioDetectionParams(**params)
+    elif task_id == 34:
+        params = AudioSegmentationParams(**params)
     else:
         raise NotImplementedError
 

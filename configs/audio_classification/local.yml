@@ -1,0 +1,43 @@
+task: audio-classification
+base_model: facebook/wav2vec2-base
+project_name: my-autotrain-audio-clf-local
+log: tensorboard
+backend: local
+
+# Local data path - should contain audio files and CSV with labels
+data_path: /path/to/audio/dataset.csv
+train_split: train
+valid_split: validation
+
+column_mapping:
+  audio_column: audio_path
+  target_column: label
+
+parameters:
+  learning_rate: 3e-5
+  epochs: 5
+  batch_size: 8
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  mixed_precision: fp16
+  gradient_accumulation: 1
+  auto_find_batch_size: false
+  push_to_hub: false
+  logging_steps: -1
+  eval_strategy: epoch
+  save_total_limit: 1
+  early_stopping_patience: 5
+  early_stopping_threshold: 0.01
+  max_length: 480000  # 30 seconds at 16kHz
+  sampling_rate: 16000
+  feature_extractor_normalize: true
+  feature_extractor_return_attention_mask: true
+
+# Note: For local audio classification:
+# - audio_path column should contain paths to audio files (.wav, .mp3, .flac)
+# - label column should contain class labels (strings or integers)
+# - CSV format: audio_path,label
+#   Example:
+#   /path/to/audio1.wav,speech
+#   /path/to/audio2.wav,music
+#   /path/to/audio3.wav,noise 

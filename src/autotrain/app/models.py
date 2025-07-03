@@ -333,6 +333,189 @@ def _fetch_vlm_models():
     return hub_models
 
 
+def _fetch_audio_classification_models():
+    """
+    Fetches and sorts audio classification models from the Hugging Face model hub.
+
+    This function retrieves models for the task "audio-classification"
+    from the Hugging Face model hub, sorts them by the number of downloads.
+    Additionally, it fetches trending models based on the number
+    of likes in the past 7 days, sorts them, and places them at the beginning of the list
+    if they are not already included.
+
+    Returns:
+        list: A sorted list of model identifiers from the Hugging Face model hub.
+    """
+    hub_models = list(
+        list_models(
+            task="audio-classification",
+            library="transformers",
+            sort="downloads",
+            direction=-1,
+            limit=100,
+            full=False,
+        )
+    )
+    hub_models = get_sorted_models(hub_models)
+
+    trending_models = list(
+        list_models(
+            task="audio-classification",
+            library="transformers",
+            sort="likes7d",
+            direction=-1,
+            limit=30,
+            full=False,
+        )
+    )
+    if len(trending_models) > 0:
+        trending_models = get_sorted_models(trending_models)
+        hub_models = [m for m in hub_models if m not in trending_models]
+        hub_models = trending_models + hub_models
+
+    return hub_models
+
+
+def _fetch_audio_segmentation_models():
+    """
+    Fetches and sorts audio segmentation models from the Hugging Face model hub.
+
+    This function retrieves models suitable for audio segmentation tasks such as
+    speaker diarization, voice activity detection, and speech/music segmentation.
+    It includes audio classification models that can be fine-tuned for segmentation.
+
+    Returns:
+        list: A sorted list of model identifiers from the Hugging Face model hub.
+    """
+    # Get audio classification models (can be used for segmentation)
+    hub_models1 = list(
+        list_models(
+            task="audio-classification",
+            library="transformers",
+            sort="downloads",
+            direction=-1,
+            limit=50,
+            full=False,
+        )
+    )
+    
+    # Get automatic speech recognition models (useful for segmentation)
+    hub_models2 = list(
+        list_models(
+            task="automatic-speech-recognition",
+            library="transformers",
+            sort="downloads",
+            direction=-1,
+            limit=50,
+            full=False,
+        )
+    )
+    
+    hub_models = list(hub_models1) + list(hub_models2)
+    hub_models = get_sorted_models(hub_models)
+
+    # Get trending models
+    trending_models1 = list(
+        list_models(
+            task="audio-classification",
+            library="transformers",
+            sort="likes7d",
+            direction=-1,
+            limit=15,
+            full=False,
+        )
+    )
+    
+    trending_models2 = list(
+        list_models(
+            task="automatic-speech-recognition",
+            library="transformers",
+            sort="likes7d",
+            direction=-1,
+            limit=15,
+            full=False,
+        )
+    )
+    
+    trending_models = list(trending_models1) + list(trending_models2)
+    if len(trending_models) > 0:
+        trending_models = get_sorted_models(trending_models)
+        hub_models = [m for m in hub_models if m not in trending_models]
+        hub_models = trending_models + hub_models
+
+    return hub_models
+
+
+def _fetch_audio_detection_models():
+    """
+    Fetches and sorts audio detection models from the Hugging Face model hub.
+
+    This function retrieves models suitable for audio detection tasks such as
+    event detection, audio classification, and temporal audio analysis.
+    It includes audio classification models that can be fine-tuned for detection.
+
+    Returns:
+        list: A sorted list of model identifiers from the Hugging Face model hub.
+    """
+    # Get audio classification models (can be used for detection)
+    hub_models1 = list(
+        list_models(
+            task="audio-classification",
+            library="transformers",
+            sort="downloads",
+            direction=-1,
+            limit=50,
+            full=False,
+        )
+    )
+    
+    # Get automatic speech recognition models (useful for audio analysis)
+    hub_models2 = list(
+        list_models(
+            task="automatic-speech-recognition",
+            library="transformers",
+            sort="downloads",
+            direction=-1,
+            limit=30,
+            full=False,
+        )
+    )
+    
+    hub_models = list(hub_models1) + list(hub_models2)
+    hub_models = get_sorted_models(hub_models)
+
+    # Get trending models
+    trending_models1 = list(
+        list_models(
+            task="audio-classification",
+            library="transformers",
+            sort="likes7d",
+            direction=-1,
+            limit=15,
+            full=False,
+        )
+    )
+    
+    trending_models2 = list(
+        list_models(
+            task="automatic-speech-recognition",
+            library="transformers",
+            sort="likes7d",
+            direction=-1,
+            limit=10,
+            full=False,
+        )
+    )
+    
+    trending_models = list(trending_models1) + list(trending_models2)
+    if len(trending_models) > 0:
+        trending_models = get_sorted_models(trending_models)
+        hub_models = [m for m in hub_models if m not in trending_models]
+        hub_models = trending_models + hub_models
+
+    return hub_models
+
+
 def fetch_models():
     _mc = collections.defaultdict(list)
     _mc["text-classification"] = _fetch_text_classification_models()
@@ -346,6 +529,9 @@ def fetch_models():
     _mc["sentence-transformers"] = _fetch_st_models()
     _mc["vlm"] = _fetch_vlm_models()
     _mc["extractive-qa"] = _fetch_text_classification_models()
+    _mc["audio-classification"] = _fetch_audio_classification_models()
+    _mc["audio-segmentation"] = _fetch_audio_segmentation_models()
+    _mc["audio-detection"] = _fetch_audio_detection_models()
 
     # tabular-classification
     _mc["tabular-classification"] = [

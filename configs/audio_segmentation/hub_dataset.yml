@@ -1,0 +1,49 @@
+task: audio_segmentation
+base_model: microsoft/speecht5_vc
+project_name: autotrain-audio-segmentation-hub
+log: tensorboard
+backend: spaces-a10g-large
+
+# Hub dataset configuration
+data_path: audiofolder/audio_segmentation_dataset
+train_split: train
+valid_split: validation
+audio_column: audio
+target_column: segments
+
+# Training parameters
+epochs: 10
+batch_size: 16
+lr: 2e-5
+scheduler: cosine
+optimizer: adamw_torch
+weight_decay: 0.01
+warmup_ratio: 0.05
+gradient_accumulation: 2
+mixed_precision: fp16
+logging_steps: 25
+save_total_limit: 5
+eval_strategy: steps
+early_stopping_patience: 5
+early_stopping_threshold: 0.005
+
+# Audio specific parameters
+max_length: 320000  # 20 seconds at 16kHz (shorter for better memory usage)
+sampling_rate: 16000
+feature_extractor_normalize: true
+feature_extractor_return_attention_mask: true
+
+# Segmentation specific parameters
+segment_length: 3.0  # seconds (shorter segments for better granularity)
+overlap_length: 0.3  # seconds
+min_segment_length: 0.5  # seconds
+
+# Model parameters
+seed: 42
+max_grad_norm: 1.0
+auto_find_batch_size: true
+push_to_hub: true
+
+# Hub settings
+token: ${HF_TOKEN}
+username: ${HF_USERNAME} 

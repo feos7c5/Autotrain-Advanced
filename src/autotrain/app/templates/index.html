@@ -84,6 +84,18 @@
                     fields = ['image', 'label'];
                     fieldNames = ['image', 'target'];
                     break;
+                case 'audio-classification':
+                    fields = ['audio', 'label'];
+                    fieldNames = ['audio_path', 'intent'];
+                    break;
+                case 'audio-segmentation':
+                    fields = ['audio', 'label'];
+                    fieldNames = ['audio_path', 'segments'];
+                    break;
+                case 'audio-detection':
+                    fields = ['audio', 'events'];
+                    fieldNames = ['audio_path', 'events'];
+                    break;
                 case 'image-object-detection':
                     fields = ['image', 'objects'];
                     fieldNames = ['image', 'objects'];
@@ -222,6 +234,11 @@
                             <option value="image-regression">Image Scoring/Regression</option>
                             <option value="image-object-detection">Object Detection</option>
                         </optgroup>
+                        <optgroup label="Audio Tasks">
+                            <option value="audio-classification">Audio Classification</option>
+                            <option value="audio-segmentation">Audio Segmentation</option>
+                            <option value="audio-detection">Audio Detection</option>
+                    </optgroup>
                         <optgroup label="Tabular Tasks">
                             <option value="tabular:classification">Tabular Classification</option>
                             <option value="tabular:regression">Tabular Regression</option>
@@ -678,7 +695,7 @@
         </div>
     </div>
     <script>
-        var autotrain_local_value = {{ enable_local }};
+        var autotrain_local_value = { enable_local };
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
     <script>

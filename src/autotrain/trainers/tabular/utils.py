@@ -10,7 +10,6 @@ from sklearn import metrics as skmetrics
 from sklearn import naive_bayes, neighbors, pipeline, preprocessing, svm, tree
 from xgboost import XGBClassifier, XGBRegressor
 
-
 MARKDOWN = """
 ---
 tags:
@@ -156,8 +155,8 @@ class TabularMetrics:
                 "r2": skmetrics.r2_score,
                 "mse": skmetrics.mean_squared_error,
                 "mae": skmetrics.mean_absolute_error,
-                "rmse": partial(skmetrics.mean_squared_error, squared=False),
-                "rmsle": partial(skmetrics.mean_squared_log_error, squared=False),
+                "rmse": lambda y_true, y_pred: np.sqrt(skmetrics.mean_squared_error(y_true, y_pred)),
+                "rmsle": skmetrics.mean_squared_log_error,
             }
         elif self.sub_task == "multi_label_classification":
             self.valid_metrics = {
@@ -194,9 +193,7 @@ class TabularMetrics:
                     metrics[metric_name] = metric_func(y_true, y_pred)
             else:
                 if metric_name == "rmsle":
-                    temp_pred = copy.deepcopy(y_pred)
-                    temp_pred = np.clip(temp_pred, 0, None)
-                    metrics[metric_name] = metric_func(y_true, temp_pred)
+                    metrics[metric_name] = metric_func(y_true, y_pred)
                 else:
                     metrics[metric_name] = metric_func(y_true, y_pred)
         return metrics

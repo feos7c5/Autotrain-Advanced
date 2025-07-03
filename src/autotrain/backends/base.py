@@ -2,6 +2,9 @@ import json
 from dataclasses import dataclass
 from typing import Union
 
+from autotrain.trainers.audio_classification.params import AudioClassificationParams
+from autotrain.trainers.audio_detection.params import AudioDetectionParams
+from autotrain.trainers.audio_segmentation.params import AudioSegmentationParams
 from autotrain.trainers.clm.params import LLMTrainingParams
 from autotrain.trainers.extractive_question_answering.params import ExtractiveQuestionAnsweringParams
 from autotrain.trainers.generic.params import GenericParams
@@ -80,6 +83,9 @@ class BaseBackend:
     """
 
     params: Union[
+        AudioClassificationParams,
+        AudioDetectionParams,
+        AudioSegmentationParams,
         TextClassificationParams,
         ImageClassificationParams,
         LLMTrainingParams,
@@ -139,6 +145,12 @@ class BaseBackend:
             self.task_id = 31
         elif isinstance(self.params, ExtractiveQuestionAnsweringParams):
             self.task_id = 5
+        elif isinstance(self.params, AudioClassificationParams):
+            self.task_id = 33
+        elif isinstance(self.params, AudioDetectionParams):
+            self.task_id = 35
+        elif isinstance(self.params, AudioSegmentationParams):
+            self.task_id = 34
         else:
             raise NotImplementedError
 

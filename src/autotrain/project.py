@@ -13,12 +13,18 @@ from autotrain.backends.ngc import NGCRunner
 from autotrain.backends.nvcf import NVCFRunner
 from autotrain.backends.spaces import SpaceRunner
 from autotrain.dataset import (
+    AutoTrainAudioClassificationDataset,
+    AutoTrainAudioDetectionDataset,
+    AutoTrainAudioSegmentationDataset,
     AutoTrainDataset,
     AutoTrainImageClassificationDataset,
     AutoTrainImageRegressionDataset,
     AutoTrainObjectDetectionDataset,
     AutoTrainVLMDataset,
 )
+from autotrain.trainers.audio_classification.params import AudioClassificationParams
+from autotrain.trainers.audio_detection.params import AudioDetectionParams
+from autotrain.trainers.audio_segmentation.params import AudioSegmentationParams
 from autotrain.trainers.clm.params import LLMTrainingParams
 from autotrain.trainers.extractive_question_answering.params import ExtractiveQuestionAnsweringParams
 from autotrain.trainers.image_classification.params import ImageClassificationParams
@@ -440,6 +446,271 @@ def ext_qa_munge_data(params, local):
     return params
 
 
+def audio_clf_munge_data(params, local):
+    if os.path.isfile(params.data_path) and params.data_path.endswith('.zip'):
+        with open(params.data_path, 'rb') as f:
+            dset = AutoTrainAudioClassificationDataset(
+                train_data=f,
+                token=params.token,
+                project_name=params.project_name,
+                username=params.username,
+                local=local,
+            )
+            params.data_path = dset.prepare()
+            params.valid_split = "validation"
+            params.audio_column = "autotrain_audio"
+            params.target_column = "autotrain_label"
+            return params
+    
+    train_data_path = f"{params.data_path}/{params.train_split}"
+    if params.valid_split is not None:
+        valid_data_path = f"{params.data_path}/{params.valid_split}"
+    else:
+        valid_data_path = None
+    
+    if os.path.isdir(train_data_path) and os.path.exists(os.path.join(train_data_path, "metadata.jsonl")):
+        dset = AutoTrainAudioClassificationDataset(
+            train_data=train_data_path,
+            valid_data=valid_data_path,
+            token=params.token,
+            project_name=params.project_name,
+            username=params.username,
+            local=local,
+        )
+        params.data_path = dset.prepare()
+        params.valid_split = "validation"
+        params.audio_column = "autotrain_audio"
+        params.target_column = "autotrain_label"
+        return params
+    
+    if os.path.isfile(params.data_path) and params.data_path.endswith('.csv'):
+        train_data_path = params.data_path
+        valid_data_path = None
+        
+        dset = AutoTrainDataset(
+            train_data=[train_data_path],
+            valid_data=[valid_data_path] if valid_data_path is not None else None,
+            task="audio_multi_class_classification",
+            token=params.token,
+            project_name=params.project_name,
+            username=params.username,
+            column_mapping={"audio": params.audio_column, "label": params.target_column},
+            local=local,
+            convert_to_class_label=True,
+        )
+        params.data_path = dset.prepare()
+        params.valid_split = "validation"
+        params.audio_column = "autotrain_audio"
+        params.target_column = "autotrain_label"
+        return params
+    
+    exts = ["csv", "jsonl"]
+    ext_to_use = None
+    for ext in exts:
+        path = f"{params.data_path}/{params.train_split}.{ext}"
+        if os.path.exists(path):
+            ext_to_use = ext
+            break
+
+    train_data_path = f"{params.data_path}/{params.train_split}.{ext_to_use}"
+    if params.valid_split is not None:
+        valid_data_path = f"{params.data_path}/{params.valid_split}.{ext_to_use}"
+    else:
+        valid_data_path = None
+    if os.path.exists(train_data_path):
+        dset = AutoTrainDataset(
+            train_data=[train_data_path],
+            valid_data=[valid_data_path] if valid_data_path is not None else None,
+            task="audio_multi_class_classification",
+            token=params.token,
+            project_name=params.project_name,
+            username=params.username,
+            column_mapping={"audio": params.audio_column, "label": params.target_column},
+            percent_valid=None,  # TODO: add to UI
+            local=local,
+            convert_to_class_label=True,
+            ext=ext_to_use,
+        )
+        params.data_path = dset.prepare()
+        params.valid_split = "validation"
+        params.audio_column = "autotrain_audio"
+        params.target_column = "autotrain_label"
+    return params
+
+
+def audio_det_munge_data(params, local):
+    if os.path.isfile(params.data_path) and params.data_path.endswith('.zip'):
+        dset = AutoTrainAudioDetectionDataset(
+            train_data=params.data_path,
+            token=params.token,
+            project_name=params.project_name,
+            username=params.username,
+            local=local,
+        )
+        prepared_data_path = dset.prepare()
+        params.data_path = prepared_data_path
+        from datasets import load_from_disk
+        try:
+            dataset = load_from_disk(prepared_data_path)
+            if "validation" in dataset:
+                params.valid_split = "validation"
+            else:
+                params.valid_split = None
+        except:
+            params.valid_split = None
+        params.audio_column = "autotrain_audio"
+        params.events_column = "autotrain_events"
+        return params
+    
+    train_data_path = f"{params.data_path}/{params.train_split}"
+    if params.valid_split is not None:
+        valid_data_path = f"{params.data_path}/{params.valid_split}"
+    else:
+        valid_data_path = None
+    
+    if os.path.isdir(train_data_path) and os.path.exists(os.path.join(train_data_path, "metadata.jsonl")):
+        dset = AutoTrainAudioDetectionDataset(
+            train_data=train_data_path,
+            valid_data=valid_data_path,
+            token=params.token,
+            project_name=params.project_name,
+            username=params.username,
+            local=local,
+        )
+        prepared_data_path = dset.prepare()
+        params.data_path = prepared_data_path
+        # Only set validation split if validation data exists
+        from datasets import load_from_disk
+        try:
+            dataset = load_from_disk(prepared_data_path)
+            if "validation" in dataset:
+                params.valid_split = "validation"
+            else:
+                params.valid_split = None
+        except:
+            params.valid_split = None
+        params.audio_column = "autotrain_audio"
+        params.events_column = "autotrain_events"
+        return params
+    
+    exts = ["csv", "jsonl"]
+    ext_to_use = None
+    for ext in exts:
+        if os.path.exists(f"{params.data_path}/{params.train_split}.{ext}"):
+            ext_to_use = ext
+            break
+    if ext_to_use is None:
+        raise ValueError(f"train.csv or train.jsonl not found in {params.data_path}")
+    
+    train_data_path = f"{params.data_path}/{params.train_split}.{ext_to_use}"
+    if params.valid_split is not None:
+        valid_data_path = f"{params.data_path}/{params.valid_split}.{ext_to_use}"
+        if not os.path.exists(valid_data_path):
+            valid_data_path = None
+    else:
+        valid_data_path = None
+    
+    dset = AutoTrainDataset(
+        train_data=[train_data_path],
+        valid_data=[valid_data_path] if valid_data_path is not None else None,
+        task="audio_detection",
+        token=params.token,
+        project_name=params.project_name,
+        username=params.username,
+        column_mapping={"audio": params.audio_column, "events": params.events_column},
+        percent_valid=None,  # TODO: add to UI
+        local=local,
+        convert_to_class_label=False,
+        ext=ext_to_use,
+    )
+    prepared_data_path = dset.prepare()
+    params.data_path = prepared_data_path
+    # Only set validation split if validation data exists
+    from datasets import load_from_disk
+    try:
+        dataset = load_from_disk(prepared_data_path)
+        if "validation" in dataset:
+            params.valid_split = "validation"
+        else:
+            params.valid_split = None
+    except:
+        params.valid_split = None
+    params.audio_column = "autotrain_audio"
+    params.events_column = "autotrain_events"
+    return params
+
+
+def audio_seg_munge_data(params, local):
+    if os.path.isfile(params.data_path) and params.data_path.endswith('.zip'):
+        with open(params.data_path, 'rb') as f:
+            dset = AutoTrainAudioSegmentationDataset(
+                train_data=f,
+                token=params.token,
+                project_name=params.project_name,
+                username=params.username,
+                local=local,
+            )
+            params.data_path = dset.prepare()
+            params.valid_split = "validation"
+            params.audio_column = "autotrain_audio"
+            params.tags_column = "autotrain_label"
+            return params
+    
+    train_data_path = f"{params.data_path}/{params.train_split}"
+    if params.valid_split is not None:
+        valid_data_path = f"{params.data_path}/{params.valid_split}"
+    else:
+        valid_data_path = None
+    
+    if os.path.isdir(train_data_path) and os.path.exists(os.path.join(train_data_path, "metadata.jsonl")):
+        dset = AutoTrainAudioSegmentationDataset(
+            train_data=train_data_path,
+            valid_data=valid_data_path,
+            token=params.token,
+            project_name=params.project_name,
+            username=params.username,
+            local=local,
+        )
+        params.data_path = dset.prepare()
+        params.valid_split = "validation"
+        params.audio_column = "autotrain_audio"
+        params.tags_column = "autotrain_label"
+        return params
+    exts = ["csv", "jsonl"]
+    ext_to_use = None
+    for ext in exts:
+        path = f"{params.data_path}/{params.train_split}.{ext}"
+        if os.path.exists(path):
+            ext_to_use = ext
+            break
+
+    if ext_to_use:
+        train_data_path = f"{params.data_path}/{params.train_split}.{ext_to_use}"
+        if params.valid_split is not None:
+            valid_data_path = f"{params.data_path}/{params.valid_split}.{ext_to_use}"
+        else:
+            valid_data_path = None
+        if os.path.exists(train_data_path):
+            dset = AutoTrainDataset(
+                train_data=[train_data_path],
+                valid_data=[valid_data_path] if valid_data_path is not None else None,
+                task="audio_segmentation",
+                token=params.token,
+                project_name=params.project_name,
+                username=params.username,
+                column_mapping={"audio": params.audio_column, "label": params.tags_column},
+                percent_valid=None,  # TODO: add to UI
+                local=local,
+                convert_to_class_label=False,
+                ext=ext_to_use,
+            )
+            params.data_path = dset.prepare()
+            params.valid_split = "validation"
+            params.audio_column = "autotrain_audio"
+            params.tags_column = "autotrain_label"
+    return params
+
+
 @dataclass
 class AutoTrainProject:
     """
@@ -491,6 +762,9 @@ class AutoTrainProject:
     """
 
     params: Union[
+        AudioClassificationParams,
+        AudioDetectionParams,
+        AudioSegmentationParams,
         LLMTrainingParams,
         TextClassificationParams,
         TabularParams,
@@ -537,6 +811,12 @@ class AutoTrainProject:
             return token_clf_munge_data(self.params, self.local)
         elif isinstance(self.params, VLMTrainingParams):
             return vlm_munge_data(self.params, self.local)
+        elif isinstance(self.params, AudioClassificationParams):
+            return audio_clf_munge_data(self.params, self.local)
+        elif isinstance(self.params, AudioDetectionParams):
+            return audio_det_munge_data(self.params, self.local)
+        elif isinstance(self.params, AudioSegmentationParams):
+            return audio_seg_munge_data(self.params, self.local)
         else:
             raise Exception("Invalid params class")
 
